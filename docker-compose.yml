@@ -1,0 +1,63 @@
+version: '3.7'
+
+networks:
+  life-es-net:
+
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:6.7.1
+    environment:
+      - discovery.type=single-node
+      - node.name=life-elastic
+      - cluster.name=docker-cluster
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - ./data:/usr/share/elasticsearch/data
+    ports:
+     - 9200:9200   
+    networks:
+        - life-es-net
+  kibana:
+    image: docker.elastic.co/kibana/kibana:6.7.1
+    depends_on:
+      - elasticsearch
+    environment:
+      - "ELASTICSEARCH_URL=http://elasticsearch:9200"
+      - node.name=life-kibana
+      - cluster.name=docker-cluster
+    ports:
+      - 5601:5601
+    networks:
+        - life-es-net
+  logstash:
+    image: docker.elastic.co/logstash/logstash:6.7.1
+    depends_on:
+      - elasticsearch
+      - kibana
+    # volumes:
+    #   - ./logstash.conf:/usr/share/logstash/pipeline/logstash.conf
+    #   - ./logstash.yml:/usr/share/logstash/config/logstash.yml
+    ports:
+      - 5044:5044
+      - 9600:9600
+    networks:
+        - life-es-net
+  nginx: 
+    image: nginx:latest
+    depends_on:
+      - elasticsearch
+      - kibana
+      - logstash
+    ports:
+      - 8080:80
+      - 4443:443
+      - 8881:8881
+      - 8882:8882
+    networks:
+      - life-es-net
+    volumes:
+      - ./kibana.conf:/etc/nginx/nginx.conf
+      - ./htpasswd.users:/etc/nginx/htpasswd.users
+      # - ./kibana.conf:/etc/nginx/conf.d/kibana.conf
+    #   - /etc/letsencrypt/:/etc/letsencrypt/
